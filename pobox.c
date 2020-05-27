@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
-int lock = 0;
+pthread_spinlock_t * lock;
 JanetTable * office = NULL;
 Janet office_keep;
 
@@ -75,25 +75,29 @@ update_wrapped (int32_t argc, Janet *argv)
   JanetFunction *f = janet_getfunction (argv, 1);
   Janet k = argv[0];
 
-  int self = pthread_self ();
+  // int self = pthread_self ();
 
   // Acquire the lock
-  while (0 == acquire_lock (self)) { sleep(0.001); }
+  // while (0 == acquire_lock (self)) { sleep(0.01); }
 
+  pthread_spin_lock (lock);
   Janet call_args[] = { janet_table_get (office, k) };
   Janet v = janet_call (f, 1, call_args);
 
-  if (lock == self)
-    {
-      // If we still have the lock, update it.
-      janet_table_put (office, k, v);
-      release_lock (k);
-    }
-  else
-    {
-      // Otherwise we were interrupted and lost it.
-      return update_wrapped (argc, argv);
-    }
+  janet_table_put (office, k, v);
+  pthread_spin_unlock (lock);
+
+  /* if (lock == self) */
+  /*   { */
+  /*     // If we still have the lock, update it. */
+  /*     janet_table_put (office, k, v); */
+  /*     release_lock (k); */
+  /*   } */
+  /* else */
+  /*   { */
+  /*     // Otherwise we were interrupted and lost it. */
+  /*     return update_wrapped (argc, argv); */
+  /*   } */
 
   return get (k);
 }

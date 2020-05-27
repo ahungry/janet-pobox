@@ -8,5 +8,7 @@
 
 (declare-native
   :name "pobox"
+  :cflags ["-Wall" "-Wextra"]
+  :lflags ["-pthread"]
   :embedded @["pobox_lib.janet"]
   :source @["pobox.c"])
