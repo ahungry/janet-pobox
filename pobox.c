@@ -8,12 +8,23 @@ int ret;
 
 typedef struct office_s {
   char *k;
-  uint8_t *v;
+  char *v;
+  int klen;
   int vlen;
   struct office_s * next;
 } office_t;
 
 office_t * office = NULL;
+
+char *
+janet_buffer_to_cstring (JanetBuffer *buf)
+{
+  char * v = malloc (sizeof (uint8_t) * buf->count);
+  memcpy (v, buf->data, buf->count);
+  v[buf->count] = '\0';
+
+  return v;
+}
 
 void
 ensure_office ()
@@ -21,7 +32,7 @@ ensure_office ()
   if (NULL == office)
     {
       office = malloc (sizeof (office_t));
-      office->k = "root";
+      office->k = (uint8_t*)"root";
       office->v = (uint8_t*)"root";
       office->next = NULL;
       ret = pthread_spin_init (&lock, pshared);
@@ -29,12 +40,13 @@ ensure_office ()
 }
 
 office_t *
-table_get (office_t * t, char * k)
+table_get (JanetBuffer * kb)
 {
-  office_t * node = t;
+  office_t * node = office;
+  char * k = janet_buffer_to_cstring (kb);
 
   do {
-    if (0 == strcmp (node->k, k))
+    if (0 == strcmp ((char*)node->k, (char*)k))
       {
         return node;
       }
@@ -44,9 +56,14 @@ table_get (office_t * t, char * k)
 }
 
 void
-table_put (office_t * t, char * k, uint8_t * v, int len)
+table_put (JanetBuffer * kb, JanetBuffer * kv)
 {
-  office_t * node = t;
+  char * k = janet_buffer_to_cstring (kb);
+  char * v = janet_buffer_to_cstring (kv);
+  int klen = kb->count;
+  int vlen = kv->count;
+
+  office_t * node = office;
   office_t * last_node = NULL;
   int found = 0;
 
@@ -62,35 +79,39 @@ table_put (office_t * t, char * k, uint8_t * v, int len)
 
   if (found)
     {
-      node->v = malloc (sizeof (uint8_t) * len);
-      memcpy (node->v, v, len);
-      node->vlen = len;
+      node->v = malloc (sizeof (uint8_t) * vlen);
+      memcpy (node->v, v, vlen);
+      node->vlen = vlen;
     }
   else
     {
       office_t *nnode = malloc (sizeof (office_t));
       last_node->next = nnode;
 
-      nnode->k = malloc (sizeof (char) * strlen (k));
-      memcpy (nnode->k, k, strlen (k));
-      nnode->k[strlen (k)] = '\0';
-      nnode->v = malloc (sizeof (uint8_t) * len);
-      memcpy (nnode->v, v, len);
-      nnode->vlen = len;
+      nnode->k = malloc (sizeof (char) * klen);
+      memcpy (nnode->k, k, klen);
+      nnode->k[klen] = '\0';
+      nnode->klen = klen;
+
+      nnode->v = malloc (sizeof (char) * vlen);
+      memcpy (nnode->v, v, vlen);
+      nnode->v[vlen] = '\0';
+      nnode->vlen = vlen;
+
       nnode->next = NULL;
     }
 }
 
 office_t *
-get (char * k)
+get (JanetBuffer * kb)
 {
-  return table_get (office, k);
+  return table_get (kb);
 }
 
 void
-make_box (char * k, uint8_t * v, int len)
+make_box (JanetBuffer * kb, JanetBuffer * vb)
 {
-  table_put (office, k, v, len);
+  table_put (kb, vb);
 }
 
 static Janet
@@ -100,20 +121,15 @@ get_wrapped (int32_t argc, Janet *argv)
 
   pthread_spin_lock (&lock);
 
-  const char *k = janet_getcstring (argv, 0);
-  int klen = strlen (k);
-  char *key = malloc (sizeof (char) * klen + sizeof (char));
-  memcpy (key, k, klen);
-  key[klen] = '\0';
-
-  office_t * t = get (key);
+  JanetBuffer *kb = janet_getbuffer (argv, 0);
+  office_t * t = get (kb);
 
   if (NULL == t)
     {
       return janet_wrap_nil ();
     }
 
-  uint8_t *v = t->v;
+  char *v = t->v;
   int len = t->vlen;
 
   JanetBuffer *buf = janet_buffer (sizeof (const uint8_t) * len);
@@ -131,10 +147,10 @@ update_wrapped (int32_t argc, Janet *argv)
   janet_fixarity (argc, 2);
 
   JanetFunction *f = janet_getfunction (argv, 1);
-  const char *k = janet_getcstring (argv, 0);
+  JanetBuffer *kb = janet_getbuffer (argv, 0);
 
-  office_t * t = get ((char*)k);
-  uint8_t * varg = t->v;
+  office_t * t = get (kb);
+  char * varg = t->v;
   int len = t->vlen;
 
   JanetBuffer *buf = janet_buffer (sizeof (const uint8_t) * len);
@@ -146,10 +162,7 @@ update_wrapped (int32_t argc, Janet *argv)
 
   JanetBuffer *vb = janet_unwrap_buffer (res);
 
-  uint8_t * v = malloc (sizeof (uint8_t) * vb->count);
-  memcpy (v, vb->data, vb->count);
-
-  make_box ((char*)k, v, vb->count);
+  make_box (kb, vb);
   pthread_spin_unlock (&lock);
 
   return janet_wrap_true ();
@@ -162,18 +175,12 @@ make_wrapped (int32_t argc, Janet *argv)
 
   ensure_office ();
   pthread_spin_lock (&lock);
-  const char * k = janet_getcstring (argv, 0);
+
+  JanetBuffer * kb = janet_getbuffer (argv, 0);
   JanetBuffer * vb = janet_getbuffer (argv, 1);
 
-  // Ensure GC doesn't screw us over
-  int klen = strlen (k);
-  char * key = malloc (sizeof (char) * klen + sizeof (char));
-  memcpy (key, k, klen);
-  key[klen] = '\0';
-  uint8_t * v = malloc (sizeof (uint8_t) * vb->count);
-  memcpy (v, vb->data, vb->count);
+  make_box (kb, vb);
 
-  make_box (key, v, vb->count);
   pthread_spin_unlock (&lock);
 
   return janet_wrap_true ();
