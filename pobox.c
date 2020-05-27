@@ -32,8 +32,8 @@ ensure_office ()
   if (NULL == office)
     {
       office = malloc (sizeof (office_t));
-      office->k = (uint8_t*)"root";
-      office->v = (uint8_t*)"root";
+      office->k = "root";
+      office->v = "root";
       office->next = NULL;
       ret = pthread_spin_init (&lock, pshared);
     }
