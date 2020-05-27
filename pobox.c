@@ -51,8 +51,6 @@ is_locked ()
 int
 acquire_lock (int who)
 {
-  int i = 0;
-
   if (is_locked ())
     {
       return 0;

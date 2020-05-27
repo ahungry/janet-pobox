@@ -5,7 +5,7 @@
 
 (pp (pobox/make "counter" 0))
 
-(map (fn [_] (thread/new (fn [_] (os/sleep 0.2) (pobox/update "counter" inc))))
+(map (fn [_] (thread/new (fn [_] (os/sleep 1) (pobox/update "counter" inc))))
      (range 1000))
 
 
