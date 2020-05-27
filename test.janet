@@ -6,7 +6,7 @@
 
 # Increment each thing in the set - the result should be 10,000
  (map (fn [_] (thread/new (fn [_] (os/sleep 1) (pobox/update "counter" inc))))
-     (range 10))
+     (range 100))
 
 # (map (fn [_]
 #        (pobox/update "counter" inc)
@@ -17,7 +17,8 @@
 
 # # Also illustrate some concurrency in just using a common storage area
 # # among Janet threads
-#(thread/new (fn [_] (os/sleep 0.2) (pobox/update "map" (fn [m] (put m :c 3)))))
+(thread/new (fn [_] (os/sleep 0.2) (pobox/update "map" (fn [m] (put m :b 3)))))
+(thread/new (fn [_] (os/sleep 0.2) (pobox/update "map" (fn [m] (put m :c 3)))))
 
 # # Give enough sleep to let things finish
 (os/sleep 2)
