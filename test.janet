@@ -2,8 +2,7 @@
 
 (pp (pobox/make :counter 0))
 
-# Increment each thing in the set - the result should be 10,000
- (map (fn [_] (thread/new (fn [_] (os/sleep 1) (pobox/update :counter inc))))
+(map (fn [_] (thread/new (fn [_] (os/sleep 1) (pobox/update :counter inc))))
      (range 100))
 
 (pobox/make :map @{:a 1})
