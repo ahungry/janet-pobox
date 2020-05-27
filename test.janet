@@ -1,10 +1,21 @@
 (import build/pobox :as pobox)
 
-(pp (pobox/make :counter 0))
-(pp (pobox/get :counter))
-(pp (pobox/update :counter (fn [x] (inc x))))
-(pp (pobox/get :counter))
-(pp (pobox/get-all))
+# Apparently the resolution for :kw or 'sym is not 'same' in threads
+# While it is for string keys and perhaps others (numbers?)
 
-# Will result in an error (one call per)
-(pp (pobox/make "Goodbye" "World"))
+(pp (pobox/make "counter" 0))
+
+(map (fn [_] (thread/new (fn [_] (os/sleep 0.5) (pobox/update "counter" inc))))
+     (range 101))
+
+
+(pobox/make "map" @{:a 1})
+(thread/new (fn [_] (os/sleep 0.2) (pobox/update "map" (fn [m] (put m :b 2)))))
+(thread/new (fn [_] (os/sleep 0.2) (pobox/update "map" (fn [m] (put m :c 3)))))
+
+# Give enough sleep to let things finish
+(os/sleep 1.2)
+
+# Equals 1000 as
+(pp (pobox/get "counter"))
+(pp (pobox/get "map"))
