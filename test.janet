@@ -5,8 +5,8 @@
 
 (pp (pobox/make "counter" 0))
 
-(map (fn [_] (thread/new (fn [_] (os/sleep 0.5) (pobox/update "counter" inc))))
-     (range 10))
+(map (fn [_] (thread/new (fn [_] (os/sleep 0.2) (pobox/update "counter" inc))))
+     (range 1000))
 
 
 (pobox/make "map" @{:a 1})
@@ -14,7 +14,7 @@
 (thread/new (fn [_] (os/sleep 0.2) (pobox/update "map" (fn [m] (put m :c 3)))))
 
 # Give enough sleep to let things finish
-(os/sleep 1.2)
+(os/sleep 2)
 
 # Equals 1000 as
 (pp (pobox/get "counter"))

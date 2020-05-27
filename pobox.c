@@ -1,13 +1,10 @@
 #include <janet.h>
 #include <unistd.h>
+#include <pthread.h>
 
-int lock_singleton = 0;
+int lock = 0;
 JanetTable * office = NULL;
-JanetTable * lock = NULL;
-JanetTable * check = NULL;
 Janet office_keep;
-Janet lock_keep;
-Janet check_keep;
 
 void
 ensure_office ()
@@ -17,14 +14,6 @@ ensure_office ()
       office = janet_table (0);
       office_keep = janet_wrap_table (office);
       janet_gcroot (office_keep);
-
-      lock = janet_table (0);
-      lock_keep = janet_wrap_table (lock);
-      janet_gcroot (lock_keep);
-
-      check = janet_table (0);
-      check_keep = janet_wrap_table (check);
-      janet_gcroot (check_keep);
     }
 }
 
@@ -38,8 +27,6 @@ void
 make_box (Janet k, Janet v)
 {
   janet_table_put (office, k, v);
-  janet_table_put (lock, k, janet_wrap_integer (0));
-  janet_table_put (check, k, janet_wrap_integer (0));
 }
 
 static Janet
@@ -51,50 +38,35 @@ get_wrapped (int32_t argc, Janet *argv)
 }
 
 int
-is_locked (Janet k)
+is_locked ()
 {
-  if (lock_singleton)
+  if (lock > 0)
     {
       return 1;
     }
 
-  Janet v = janet_table_get (lock, k);
-
-  return janet_unwrap_integer (v);
+  return 0;
 }
 
 int
-acquire_lock (Janet k)
+acquire_lock (int who)
 {
-  if (is_locked (k))
+  int i = 0;
+
+  if (is_locked ())
     {
       return 0;
     }
 
-  // Ensure the check value is the same before and after
-  int ocv = janet_unwrap_integer (janet_table_get (check, k));
-  janet_table_put (lock, k, janet_wrap_integer (1));
-  int ncv = janet_unwrap_integer (janet_table_get (check, k));
+  lock = who;
 
-  // If the update count is the same before and after, we're good.
-  if (ocv == ncv)
-    {
-      lock_singleton = 1;
-      janet_table_put (check, k, janet_wrap_integer (ncv + 1));
-
-      return 1;
-    }
-  else
-    {
-      return 0;
-    }
+  return 1;
 }
 
 void
-release_lock (Janet k)
+release_lock ()
 {
-  janet_table_put (lock, k, janet_wrap_integer (0));
-  lock_singleton = 0;
+  lock = 0;
 }
 
 static Janet
@@ -105,15 +77,25 @@ update_wrapped (int32_t argc, Janet *argv)
   JanetFunction *f = janet_getfunction (argv, 1);
   Janet k = argv[0];
 
+  int self = pthread_self ();
+
   // Acquire the lock
-  while (acquire_lock (k)) { sleep(0.01); }
+  while (0 == acquire_lock (self)) { sleep(0.001); }
 
   Janet call_args[] = { janet_table_get (office, k) };
   Janet v = janet_call (f, 1, call_args);
 
-  janet_table_put (office, k, v);
-
-  release_lock (k);
+  if (lock == self)
+    {
+      // If we still have the lock, update it.
+      janet_table_put (office, k, v);
+      release_lock (k);
+    }
+  else
+    {
+      // Otherwise we were interrupted and lost it.
+      return update_wrapped (argc, argv);
+    }
 
   return get (k);
 }
