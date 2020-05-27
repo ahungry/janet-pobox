@@ -2,7 +2,10 @@
 #include <unistd.h>
 #include <pthread.h>
 
-pthread_spinlock_t * lock;
+pthread_spinlock_t lock;
+int pshared = PTHREAD_PROCESS_SHARED;
+int ret;
+
 JanetTable * office = NULL;
 Janet office_keep;
 
@@ -14,6 +17,8 @@ ensure_office ()
       office = janet_table (0);
       office_keep = janet_wrap_table (office);
       janet_gcroot (office_keep);
+
+      ret = pthread_spin_init(&lock, pshared);
     }
 }
 
@@ -37,36 +42,6 @@ get_wrapped (int32_t argc, Janet *argv)
   return get (argv[0]);
 }
 
-int
-is_locked ()
-{
-  if (lock > 0)
-    {
-      return 1;
-    }
-
-  return 0;
-}
-
-int
-acquire_lock (int who)
-{
-  if (is_locked ())
-    {
-      return 0;
-    }
-
-  lock = who;
-
-  return 1;
-}
-
-void
-release_lock ()
-{
-  lock = 0;
-}
-
 static Janet
 update_wrapped (int32_t argc, Janet *argv)
 {
@@ -75,29 +50,12 @@ update_wrapped (int32_t argc, Janet *argv)
   JanetFunction *f = janet_getfunction (argv, 1);
   Janet k = argv[0];
 
-  // int self = pthread_self ();
-
-  // Acquire the lock
-  // while (0 == acquire_lock (self)) { sleep(0.01); }
-
-  pthread_spin_lock (lock);
+  pthread_spin_lock (&lock);
   Janet call_args[] = { janet_table_get (office, k) };
   Janet v = janet_call (f, 1, call_args);
 
   janet_table_put (office, k, v);
-  pthread_spin_unlock (lock);
-
-  /* if (lock == self) */
-  /*   { */
-  /*     // If we still have the lock, update it. */
-  /*     janet_table_put (office, k, v); */
-  /*     release_lock (k); */
-  /*   } */
-  /* else */
-  /*   { */
-  /*     // Otherwise we were interrupted and lost it. */
-  /*     return update_wrapped (argc, argv); */
-  /*   } */
+  pthread_spin_unlock (&lock);
 
   return get (k);
 }
