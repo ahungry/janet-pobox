@@ -20,7 +20,7 @@ roughly 99.9% lossless).
 
 # # Also illustrate some concurrency in just using a common storage area
 # # among Janet threads
-(thread/new (fn [_] (os/sleep 0.2) (pobox/update :map (fn [m] (put m :b 3)))))
+(thread/new (fn [_] (os/sleep 0.2) (pobox/update :map (fn [m] (put m :b 2)))))
 (thread/new (fn [_] (os/sleep 0.2) (pobox/update :map (fn [m] (put m :c 3)))))
 
 # # Give enough sleep to let things finish
@@ -34,7 +34,7 @@ roughly 99.9% lossless).
 ```sh
 true
 100
-@{:a 1 :c 3 :b 3}
+@{:a 1 :c 3 :b 2}
 janet test.janet  0.23s user 0.15s system 18% cpu 2.058 total
 ```
 
