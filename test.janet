@@ -6,7 +6,7 @@
 (pp (pobox/make "counter" 0))
 
 (map (fn [_] (thread/new (fn [_] (os/sleep 0.5) (pobox/update "counter" inc))))
-     (range 101))
+     (range 10))
 
 
 (pobox/make "map" @{:a 1})
