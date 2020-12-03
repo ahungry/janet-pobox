@@ -206,7 +206,6 @@ make_wrapped (int32_t argc, Janet *argv)
 {
   janet_fixarity (argc, 2);
 
-  ensure_office ();
   pthread_spin_lock (&lock);
 
   JanetBuffer * kb = janet_getbuffer (argv, 0);
@@ -231,6 +230,7 @@ extern const unsigned char *pobox_lib_embed;
 extern size_t pobox_lib_embed_size;
 
 JANET_MODULE_ENTRY (JanetTable *env) {
+  ensure_office ();
   janet_cfuns (env, "pobox", pobox_cfuns);
   janet_dobytes(env,
                 pobox_lib_embed,

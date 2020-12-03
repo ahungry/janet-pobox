@@ -1,6 +1,7 @@
 (import build/pobox :as pobox)
 
-(pp (pobox/make :counter 0))
+(thread/new (fn [_] (pobox/make :counter 0)))
+#(pp (pobox/make :counter 0))
 
 (map (fn [_] (thread/new (fn [_] (os/sleep 1) (pobox/update :counter inc))))
      (range 100))
