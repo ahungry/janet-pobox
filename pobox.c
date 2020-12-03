@@ -106,6 +106,9 @@ table_put (JanetBuffer * kb, JanetBuffer * kv)
 
   if (found)
     {
+      // Free the old reference before allocating a new one.
+      // Using realloc here causes tcache issues
+      free (node->v);
       node->v = malloc (sizeof (uint8_t) * vlen);
       memcpy (node->v, v, vlen);
       node->vlen = vlen;
