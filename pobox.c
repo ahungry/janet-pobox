@@ -71,9 +71,13 @@ table_get (JanetBuffer * kb)
   do {
     if (0 == bytecmp (node->k, node->klen, k, kb->count))
       {
+        free (k);
+
         return node;
       }
   } while ((node = node->next) != NULL);
+
+  free (k);
 
   return NULL;
 }
@@ -123,6 +127,9 @@ table_put (JanetBuffer * kb, JanetBuffer * kv)
 
       nnode->next = NULL;
     }
+
+  free (k);
+  free (v);
 }
 
 office_t *
