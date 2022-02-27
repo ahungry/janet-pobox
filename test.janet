@@ -1,18 +1,18 @@
 (import build/pobox :as pobox)
 
-(thread/new (fn [_] (pobox/make :counter 0)))
+(ev/spawn-thread (pobox/make :counter 0))
 
-(map (fn [_] (thread/new (fn [_] (os/sleep 1) (pobox/update :counter inc))))
+(map (fn [_] (ev/spawn-thread (os/sleep 1) (pobox/update :counter inc)))
      (range 100))
 
 (pobox/make :map @{:a 1})
 
 # # Also illustrate some concurrency in just using a common storage area
 # # among Janet threads
-(thread/new (fn [_] (os/sleep 0.2) (pobox/update :map (fn [m] (put m :b 2)))))
-(thread/new (fn [_] (os/sleep 0.2) (pobox/update :map (fn [m] (put m :c 3)))))
-(thread/new (fn [_] (os/sleep 0.2) (pobox/update :map (fn [m] (put m :d "woohoo")))))
-(thread/new (fn [_] (os/sleep 0.2) (pobox/update :map (fn [m] (put m :b {:x 10 :w 20})))))
+(ev/spawn-thread (os/sleep 0.2) (pobox/update :map (fn [m] (put m :b 2))))
+(ev/spawn-thread (os/sleep 0.2) (pobox/update :map (fn [m] (put m :c 3))))
+(ev/spawn-thread (os/sleep 0.2) (pobox/update :map (fn [m] (put m :d "woohoo"))))
+(ev/spawn-thread (os/sleep 0.2) (pobox/update :map (fn [m] (put m :b {:x 10 :w 20}))))
 
 # # Give enough sleep to let things finish
 (os/sleep 2)
